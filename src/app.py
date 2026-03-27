@@ -1,44 +1,36 @@
-
-from flask import Flask, render_template, request
-import joblib
+import streamlit as st
 import pandas as pd
+import pickle
 
-app = Flask(__name__)
+# 1. Configuración de la página
+st.set_page_config(page_title="Predictor de ML", layout="centered")
 
-# 1. Cargar el modelo y los encoders (traductores)
-model = joblib.load('../models/model.pkl')
-le_item = joblib.load('../models/le_item.pkl')
-le_cat = joblib.load('../models/le_cat.pkl')
-le_target = joblib.load('../models/le_target.pkl')
+# 2. Carga del modelo (Usa cache para que no se recargue en cada interacción)
+@st.cache_resource
+def load_model():
+    with open("../models/model.pkl", "rb") as f:
+        return pickle.load(f)
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    prediction = None
-    error = None
+model = load_model()
+
+# 3. Interfaz de usuario
+st.title("🤖 Mi Modelo de Predicción")
+st.markdown("Ingresa los datos para obtener una respuesta en tiempo real.")
+
+# Crear columnas para organizar los inputs
+col1, col2 = st.columns(2)
+
+with col1:
+    valor_a = st.number_input("Variable A", min_value=0.0)
+    categoria = st.selectbox("Categoría", ["Opción 1", "Opción 2"])
+
+with col2:
+    valor_b = st.slider("Variable B", 0, 100, 50)
+
+# 4. Lógica de predicción
+if st.button("Realizar Predicción"):
+    # Aquí transformas los inputs en el formato que espera tu modelo (ej. DataFrame)
+    datos_entrada = pd.DataFrame([[valor_a, valor_b]]) 
+    prediccion = model.predict(datos_entrada)
     
-    if request.method == 'POST':
-        try:
-            # Obtener datos del formulario web
-            item_input = request.form['item']
-            cat_input = request.form['category']
-
-            # Transformar el texto ingresado a los números que el modelo conoce
-            # Usamos transform() con los encoders que guardamos en el Paso 2
-            item_encoded = le_item.transform([item_input])[0]
-            cat_encoded = le_cat.transform([cat_input])[0]
-
-            # Realizar la predicción (devuelve un ID numérico)
-            pred_id = model.predict([[item_encoded, cat_encoded]])[0]
-            
-            # Convertir ese ID de vuelta al nombre del Proveedor Real
-            prediction = le_target.inverse_transform([pred_id])[0]
-            
-        except ValueError:
-            error = "El artículo o categoría no se encuentran en el historial. Intenta con 'Laptop' y 'Electronics'."
-        except Exception as e:
-            error = f"Ocurrió un error: {str(e)}"
-
-    return render_template('index.html', prediction=prediction, error=error)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    st.success(f"El resultado de la predicción es: {prediccion[0]}")

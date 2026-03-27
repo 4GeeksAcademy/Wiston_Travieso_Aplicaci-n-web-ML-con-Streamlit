@@ -16,3 +16,4 @@ xgboost
 kagglehub
 flask
 gunicorn
+streamlit
